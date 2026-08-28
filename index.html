@@ -331,6 +331,113 @@ button { font-family: inherit; cursor: pointer; }
   text-align: center; font-size: 13px; color: var(--muted);
   margin-top: 14px;
 }
+
+/* === Interactive timeline enhancements === */
+.tl-scroll {
+  scroll-behavior: smooth;
+}
+.tl-line {
+  background: linear-gradient(90deg, 
+    rgba(12,35,64,.25) 0%, 
+    var(--accent) 20%, 
+    var(--gold) 50%, 
+    var(--accent) 80%, 
+    rgba(12,35,64,.25) 100%);
+  height: 4px;
+  box-shadow: 0 0 12px rgba(212,181,106,.35);
+  animation: lineGlow 4s ease-in-out infinite alternate;
+}
+@keyframes lineGlow {
+  from { opacity: .75; filter: brightness(1); }
+  to { opacity: 1; filter: brightness(1.15); }
+}
+.tl-dot {
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s, filter .25s;
+  animation: dotPulse 2.8s ease-in-out infinite;
+}
+.tl-item:nth-child(odd) .tl-dot { animation-delay: 0s; }
+.tl-item:nth-child(even) .tl-dot { animation-delay: .4s; }
+.tl-item:nth-child(3n) .tl-dot { animation-delay: .8s; }
+@keyframes dotPulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--dot-cor, var(--accent)), 0 4px 12px rgba(0,0,0,.15); }
+  50% { box-shadow: 0 0 0 2px var(--dot-cor, var(--accent)), 0 0 0 8px color-mix(in srgb, var(--dot-cor, var(--accent)) 25%, transparent), 0 4px 16px rgba(0,0,0,.18); }
+}
+.tl-item.destaque .tl-dot {
+  animation: dotPulseGold 2.2s ease-in-out infinite;
+}
+@keyframes dotPulseGold {
+  0%, 100% { 
+    box-shadow: 0 0 0 3px var(--dot-cor), 0 0 0 6px rgba(212,181,106,.35), 0 6px 16px rgba(0,0,0,.2);
+  }
+  50% { 
+    box-shadow: 0 0 0 3px var(--dot-cor), 0 0 0 10px rgba(212,181,106,.45), 0 8px 22px rgba(212,181,106,.3);
+    transform: scale(1.08);
+  }
+}
+.tl-item:hover .tl-dot {
+  transform: scale(1.35);
+  filter: brightness(1.15);
+  animation: none;
+  box-shadow: 0 0 0 3px var(--dot-cor), 0 0 0 10px color-mix(in srgb, var(--dot-cor) 30%, transparent), 0 8px 20px rgba(0,0,0,.25);
+}
+.tl-item:hover .tl-titulo {
+  color: var(--navy-2);
+}
+.tl-item:active .tl-dot {
+  transform: scale(1.15);
+}
+.tl-item.active-event .tl-dot {
+  transform: scale(1.4);
+  animation: none;
+  box-shadow: 0 0 0 4px var(--dot-cor), 0 0 0 12px color-mix(in srgb, var(--dot-cor) 35%, transparent), 0 10px 24px rgba(0,0,0,.28);
+  filter: brightness(1.2);
+}
+.tl-item.active-event .tl-titulo {
+  color: var(--navy);
+  font-weight: 700;
+}
+.tl-item {
+  transition: transform .3s cubic-bezier(.34,1.4,.64,1), opacity .35s;
+}
+.tl-item:hover {
+  transform: translateY(-8px);
+}
+.tl-titulo {
+  transition: color .2s;
+}
+/* fade-in when filtering */
+.tl-item.enter {
+  animation: itemIn .45s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes itemIn {
+  from { opacity: 0; transform: translateY(16px) scale(.92); }
+  to { opacity: 1; transform: none; }
+}
+/* scrollbar more visible */
+.tl-scroll::-webkit-scrollbar { height: 10px; }
+.tl-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+  border-radius: 6px;
+}
+.tl-scroll::-webkit-scrollbar-track {
+  background: var(--tint);
+  border-radius: 6px;
+}
+/* year button pop */
+.ybtn {
+  transition: all .22s cubic-bezier(.34,1.4,.64,1);
+}
+.ybtn:hover { transform: translateY(-2px); }
+.ybtn.on { transform: scale(1.04); }
+/* KPI subtle hover */
+.kpi {
+  transition: transform .25s, box-shadow .25s;
+}
+.kpi:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.14);
+}
+
 </style>
 </head>
 <body>
@@ -459,8 +566,9 @@ function renderTimeline() {
   items.forEach((e, i) => {
     const meta = TIPO_META[e.tipo] || {cor:'#D4B56A', icon:'●'};
     const el = document.createElement('div');
-    el.className = 'tl-item' + (e.destaque ? ' destaque' : '');
+    el.className = 'tl-item enter' + (e.destaque ? ' destaque' : '');
     el.style.setProperty('--dot-cor', meta.cor);
+    el.style.animationDelay = (i * 0.04) + 's';
     el.dataset.idx = EVENTS.indexOf(e);
     el.innerHTML = `
       <div class="tl-dot">${meta.icon}</div>
@@ -468,20 +576,21 @@ function renderTimeline() {
       <div class="tl-titulo">${e.titulo}</div>
       <div class="tl-tipo">${e.tipo}</div>
     `;
-    el.onclick = () => openModal(e);
+    el.onclick = () => openModal(e, el);
     tlTrack.appendChild(el);
   });
-  // legend
   const legend = document.getElementById('legend');
   legend.innerHTML = Object.entries(TIPO_META).map(([t,m]) =>
     `<span><i style="background:${m.cor}"></i> ${t}</span>`
   ).join('');
-  // scroll to start
   document.getElementById('tlScroll').scrollLeft = 0;
 }
 
-function openModal(e) {
-  const meta = TIPO_META[e.tipo] || {cor:'#D4B56A'};
+function openModal(e, el) {
+  document.querySelectorAll('.tl-item.active-event').forEach(x => x.classList.remove('active-event'));
+  if (el) el.classList.add('active-event');
+
+  const meta = TIPO_META[e.tipo] || {cor:'#D4B56A', icon:'●'};
   modalBox.innerHTML = `
     <div class="modal-head">
       <h2>${e.titulo}</h2>
@@ -512,7 +621,10 @@ function openModal(e) {
   modalBg.classList.add('on');
   document.getElementById('modalClose').onclick = closeModal;
 }
-function closeModal() { modalBg.classList.remove('on'); }
+function closeModal() {
+  modalBg.classList.remove('on');
+  document.querySelectorAll('.tl-item.active-event').forEach(x => x.classList.remove('active-event'));
+}
 modalBg.addEventListener('click', e => { if (e.target === modalBg) closeModal(); });
 
 // Year buttons
@@ -536,7 +648,7 @@ document.getElementById('btnEnd').onclick = () => {
   closing.classList.add('on');
 };
 
-const SGQ_URL = 'https://qualidadecarmak.github.io/Sistema-de-Gestao-da-Qualidade-SGQ/';
+const SGQ_URL = 'https://qualidadecarmak.github.io/Sistema-de-Gestao-da-Qualidade-SGQ-/';
 function openSgq() {
   window.open(SGQ_URL, '_blank', 'noopener');
 }
